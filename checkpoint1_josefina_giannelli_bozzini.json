@@ -1,0 +1,264 @@
+{
+  "name": "Clasificacion de Leads",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "447b645e-1df8-46c1-9dc7-1e58194b6795",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "95ce46b8-7b0f-42b6-863e-09d4a692ac34",
+      "name": "Webhook",
+      "webhookId": "447b645e-1df8-46c1-9dc7-1e58194b6795"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $input.first().json;\nconst body = entrada.body ?? entrada;\nconst fields = body?.data?.fields ?? [];\n\nconst datos = {};\nfor (const f of fields) {\n  let valor = f.value;\n\n  // Si el campo es una lista de opciones, la convertimos a texto\n  if (Array.isArray(valor) && Array.isArray(f.options)) {\n    valor = valor\n      .map(id => f.options.find(o => o.id === id)?.text ?? id)\n      .join(', ');\n  } else if (Array.isArray(valor)) {\n    valor = valor.join(', ');\n  }\n\n  // Si viene vacío, lo marcamos como no informado\n  if (valor === null || valor === undefined || valor === '') {\n    valor = 'No informado';\n  }\n\n  datos[f.label] = valor;\n}\n\nreturn [{ json: { datos } }];;;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "33ff3c71-4973-4eba-b06c-3d488ddf6e6a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Nuevo lead recibido desde el formulario web:\nNombre: {{ $json.datos.Nombre }}\nEmail: {{ $json.datos.Email }}\nMensaje: {{ $json.datos.Mensaje }}",
+        "options": {
+          "systemMessage": "# ROL\nSos el Asistente de Calificación de Leads de Chias.\n\n# ÁMBITO\nRecibís los datos de un formulario de contacto web: nombre, email y un mensaje de texto libre. Del mensaje tenés que identificar la necesidad del lead y si es urgente. Solo trabajás con consultas comerciales.\n\n# OBJETIVO\n1. Identificar la necesidad del lead a partir del mensaje.\n2. Clasificar el lead como URGENTE o ESTÁNDAR.\n3. Registrar el lead en la planilla usando la herramienta disponible.\n4. Responder con un resumen breve de la calificación.\n\n# REGLAS\n- Clasificá como URGENTE si el mensaje indica una necesidad inmediata (por ejemplo, \"esta semana\", \"lo antes posible\" o una fecha límite cercana).\n- Clasificá como ESTÁNDAR si es una consulta comercial válida sin urgencia, o si no hay datos suficientes para considerarla urgente.\n- Si falta un dato, escribí \"No informado\". No inventes información.\n- Usá un tono profesional y neutro.\n\n# LO QUE NO PODÉS HACER\n- No prometas precios, descuentos ni plazos de entrega.\n- No des información que no esté en el mensaje del lead.\n- No registres el mismo lead dos veces.\n- No respondas consultas ajenas a la calificación de leads.\n\n# ESCALAMIENTO\nSi el mensaje contiene un reclamo, un tema legal o una consulta ajena al negocio, no registres nada y respondé: \"Derivar a un asesor humano\"."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "8f42f724-680d-4cc3-aab3-b69c366b1547",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        208
+      ],
+      "id": "2c2f4c35-72cd-4273-9df2-21ff22e2b897",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Usá esta herramienta para registrar un lead en la planilla de leads de la empresa. Activala de forma autónoma únicamente cuando ya hayas analizado el mensaje y lo hayas clasificado como URGENTE o ESTÁNDAR. Registrá los siguientes datos: nombre, email, necesidad y clasificación. No la uses si el mensaje es un reclamo, una consulta ajena al negocio o si el caso debe derivarse a un asesor humano. No la uses dos veces para el mismo lead. Si algún dato falta, completá el campo con \"No informado\".",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1_n9RdlQg3TB6WwyLb2YXgj0y1KuACTgkGSIxAWdSG1Q",
+          "mode": "list",
+          "cachedResultName": "Leads - Hacenos tu consulta",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_n9RdlQg3TB6WwyLb2YXgj0y1KuACTgkGSIxAWdSG1Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_n9RdlQg3TB6WwyLb2YXgj0y1KuACTgkGSIxAWdSG1Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Nombre": "={{ $('Code in JavaScript').item.json.datos.Nombre }}",
+            "Email": "={{ $('Code in JavaScript').item.json.datos.Email }}",
+            "Necesidad ": "={{ $fromAI('Necesidad', 'Resumen breve de lo que necesita el lead, sacado del mensaje', 'string') }}",
+            "clasificación": "={{ $fromAI('Clasificacion', 'Clasificación del lead: solo URGENTE o ESTÁNDAR', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Nombre",
+              "displayName": "Nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Necesidad ",
+              "displayName": "Necesidad ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "clasificación",
+              "displayName": "clasificación",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        592,
+        240
+      ],
+      "id": "cec37f1c-337e-4776-90f9-2741b4d2ca71",
+      "name": "Append row in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QngANc77OWOGykS2",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "josefina.giannellibozzini@gmail.com",
+        "subject": "=Reporte de calificación de lead: {{ $('Code in JavaScript').first().json.datos.Nombre }}",
+        "emailType": "text",
+        "message": "=Datos recibidos: Nombre: {{ $('Code in JavaScript').first().json.datos.Nombre }} Email: {{ $('Code in JavaScript').first().json.datos.Email }} Mensaje: {{ $('Code in JavaScript').first().json.datos.Mensaje }}  Resultado del agente: {{ $json.output }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "f493a06f-86e0-4f7d-afd7-71717e69f1d0",
+      "name": "Send a message",
+      "webhookId": "c80ba7cd-fd51-432d-8880-b618e87e1384",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rcQTqa6ryEVJgzq6",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c58abced-e8b0-4051-8b18-29f2d9ffe60b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "471c5b88ce3866db088abd51a69ad68d1c5661318ea8f90e58835bca683966cb"
+  },
+  "nodeGroups": [],
+  "id": "7S8pASIBQqHMQ0L8",
+  "tags": []
+}
